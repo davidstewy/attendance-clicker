@@ -7,6 +7,19 @@ key_combinations = {}
 pressed_vk = set()
 config = None
 
+"""
+These magic numbers came from just running a program that printed out the 
+virtual key (vk) of each character as I pressed them
+
+from pynput import keyboard
+
+def on_press(key):
+    vk = key.vk if hasattr(key, 'vk') else key.value.vk
+    print('vk =', vk)
+
+with keyboard.Listener(on_press=on_press) as listener:
+    listener.join()
+"""
 key_to_vk_map = {
     'a': 0,
     'b': 11,
@@ -48,18 +61,22 @@ key_to_vk_map = {
 
 special_key_map = {}
 
-# This allows us to grab all the special keys (non-alphanumeric) and associate a human readable version of them with the enums
-# this will allow us to allow the user to configure custom hotkeys
 def process_special_key_enum():
+    """
+    This grabs each of the non-alphanumeric from pynput and associates them with a human readable version to make configuring 
+    key combos much easier. 
+    """
     key_enum = keyboard.Key
     # key enums as a string look like Key.alt, this removes the 'Key.' prefix
     keys_without_prefix = map(lambda k: str(k)[4:], key_enum)
     zipped_keys = zip(keys_without_prefix, key_enum)
-    
     return dict(zipped_keys)
 
 
 def read_config():
+    """
+    This reads the configuration file and returns the config object for further processing later
+    """
     config = configparser.ConfigParser()
     config.read('keyconfig.ini')
 
@@ -67,6 +84,10 @@ def read_config():
 
 
 def parse_combo(combo):
+    """
+    This is a utility function for process_combos, we take a string from the config file and process it
+    as a list of actual key objects that pynput understands.
+    """
     keys = set()
 
     for k in combo.split('+'):
@@ -79,6 +100,13 @@ def parse_combo(combo):
 
 
 def process_combos(config):
+    """
+    Here we parse the keyconfig.ini file for key combinations to watch or as well as number of clicks
+    per each action.
+
+    frozenset creates an immutable set, this way we can use a combination of keys as a key for a dictionary
+    to associate each combo to a number of clicks.
+    """
     combos = config['KEY COMBOS']
     status_clicks = config['STATUS CLICKS']
 
@@ -99,15 +127,24 @@ def get_vk(key):
 
 
 def is_combo_pressed(combo):
+    """
+    This checks the hotkeys in the keyconfig.ini against the currently pressed input to see if we have pressed
+    a given combination of keys
+    """
     return all([get_vk(key) in pressed_vk for key in combo])
         
 
 def click_mouse(number_of_clicks):
+    """
+    This is use to cause automatick clicks of the mouse, the mouse will click number_of_clicks times.
+    """
     pyautogui.click(clicks=int(number_of_clicks))
 
 
-# this will choose the first combo that matches, so if you have one for shit + a and shift + alt + a then shift + a is the one triggered (maybe depening on the .ini file)
 def on_press(key):
+    """
+    This is how we capture key presses and see if we have pressed a combo
+    """
     pressed_vk.add(get_vk(key))
 
     for combo in key_combinations:
@@ -117,6 +154,10 @@ def on_press(key):
 
 
 def on_release(key):
+    """
+    Here if a key is released and it is the escape key, we exit the program, if not we remove the released key from
+    pressed_vk so we dont process it as part of a potential key combo press.
+    """
     vk = get_vk(key)
     if vk in pressed_vk:
         pressed_vk.remove(vk)
